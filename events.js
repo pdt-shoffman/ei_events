@@ -21,9 +21,80 @@ function PDCEFEvent(options) {
     $.ajax(merged);
 }
 
+function PDChangeEvent(options) {
+    var merged = $.extend(true, {}, {
+            type: "POST",
+            dataType: "json",
+            headers: {
+                'Content-Type': "application/json",
+    			'Accept': "application/json"
+            },
+            url: "https://events.pagerduty.com/v2/change/enqueue"
+
+        },
+        options);
+
+    $.ajax(merged);
+}
+
+async function TriggerChangeEvents(key) {
+	console.log('Triggering change events')
+
+	var timestamp = Date.now();
+	var change_timestamp = timestamp - 900000;
+	
+	var prev_timestamp_iso = new Date(change_timestamp);
+
+
+	console.log('Change timestamp is '+prev_timestamp_iso.toString())
+
+
+	var change1 = { 
+		  "routing_key": key,
+		  "payload": {
+		    "summary": "valramirez pushed branch master from rest_api_svc",
+		    "source": "GitHub",
+		    "timestamp": prev_timestamp_iso,
+		    "custom_details": {
+		      
+		    }		
+		}
+	};
+
+	var change2 =  { 
+		  "routing_key": key,
+		  "payload": {
+		    "summary": "Build Successful: Merge pull request #42 from rest_api_svc",
+		    "source": "Buildkite",
+		    "timestamp": prev_timestamp_iso
+		}
+	};
+
+	var events = [change1, change2];
+    var event;
+    var info_str = "</br>Kicking off change events.</br>"
+
+    for (event of events) {
+
+    	event_type = event['payload']['source']
+    	
+
+        var options = {
+            data: JSON.stringify(event)
+        };
+
+
+        PDChangeEvent(options);
+        info_str = info_str + "Triggering "+event_type+" event</br>"
+        $('#info').html("<p>"+info_str+"</p>");
+
+        
+    }
+}
 
 async function TriggerAlertStorm(key) {
     console.log('Triggering alert storm')
+    var db_num=Math.round(Math.random() * 10);
 
     var nagios = {
         "event_action": "trigger",
@@ -31,28 +102,68 @@ async function TriggerAlertStorm(key) {
         "client_url": "http://54.193.12.191:8000/en-US/app/search/search?q=search%20login",
         "routing_key": key,
         "payload": {
-            "summary": `CRITICAL: 'mysql_long_running_query' on 'mysql-prod-db01.pd-ops.net`,
-            "source": "Nagios",
-            "severity": "critical",
-            "custom_details": {
-                "IP": "127.0.0.1",
-            }
-        }
-    };
+		  "summary": "CRITICAL: 'mysql_long_running_query' on 'mysql-prod-db0"+db_num+".pd-ops.net'",
+  		  "severity": "warning",
+  		  "source": "Nagios",
+  		  "custom_details": {
+	          "pd_nagios_object": "service",
+	          "SERVICESTATE": "CRITICAL",
+	          "SERVICEPROBLEMID": "221215",
+	          "SERVICEOUTPUT": "QUERY CRITICAL: select * from order",
+	          "SERVICEDISPLAYNAME": "mysql_long_running_query",
+	          "SERVICEDESC": "mysql_long_running_query",
+	          "HOSTNAME": "mysql-prod-db0$DB_NUM.pd-ops.net",
+	          "HOSTDISPLAYNAME": "mysql-prod-db0$DB_NUM.pd-ops.net"
+        	}
+    	}
+	};
 
-var newrelic = {
+	var newrelic = {
         "event_action": "trigger",
         "client": "New Relic",
-        "client_url": "http://54.193.12.191:8000/en-US/app/search/search?q=search%20login",
+		"client_url": "https://alerts.newrelic.com/accounts/1985859/incidents/62835129",
         "routing_key": key,
         "payload": {
-            "summary": `Service Monitors (Inventory API Health Check violated API Request Failure)`,
-            "source": "New Relic",
-            "severity": "critical",
-            "custom_details": {
-                "IP": "127.0.0.1",
-            }
-        }
+  			"summary": "Service Monitors (API Health Check violated API Request Failure)",
+  			"severity": "critical",
+  			"source": "New Relic",
+  			"custom_details": {
+      			"violation_callback_url": "https://synthetics.newrelic.com/accounts/1985859/monitors/704df0e2-dcc9-48f8-8756-dd83554c5da3/results/4a1a333d-2346-4a81-8091-dbf623d5016f",
+      			"version": "1.0",
+      			"targets": [
+       				{
+			          "type": "Monitor",
+			          "product": "SYNTHETICS",
+			          "name": "API Health Check",
+			          "link": "https://synthetics.newrelic.com/accounts/1985859/monitors/704df0e2-dcc9-48f8-8756-dd83554c5da3/results/4a1a333d-2346-4a81-8091-dbf623d5016f",
+			          "labels": {},
+			          "id": "us-west-1"
+			        }
+			      ],
+  				"policy_url": "https://alerts.newrelic.com/accounts/1985859/policies/423861",
+  				"policy_name": "Service Monitors",
+  				"open_violations_count": {
+  					"warning": "0",
+		        	"critical": "1"
+		      	},
+		      "incident_url": "https://alerts.newrelic.com/accounts/1985859/incidents/62835129",
+		      "incident_id": "62835129",
+		      "incident_acknowledge_url": "https://alerts.newrelic.com/accounts/1985859/incidents/62835129/acknowledge",
+		      "event_type": "INCIDENT",
+		      "duration": "658",
+		      "details": "Monitor failed for location Freemont, CA, USA",
+		      "current_state": "open",
+		      "condition_name": "API Request Failure",
+		      "condition_id": "47340281",
+		      "condition_family_id": "10419059",
+		      "closed_violations_count": {
+		        "warning": "0",
+		        "critical": "0"
+		      },
+		      "account_name": "PagerDuty",
+		      "account_id": "1985859"
+			}
+		}
     };
 
  var splunk = {
@@ -71,10 +182,14 @@ var newrelic = {
     };
 
   var datadog1 = {
+        "event_action": "trigger",
+        "client": "Data Dog",
+        "client_url": "http://54.193.12.191:8000/en-US/app/search/search?q=search%20login",
+        "routing_key": key,
         "payload":{
 	        "summary": "Request Response Time is High for prod - (95th percentile > 100 ms on average during the last 10m)",
 	        "severity": "warning",
-	          "source": "DataDog",
+	        "source": "DataDog",
 	        "custom_details": {
 	            "title": "Request Response Time is High for prod - (95th percentile > 100 ms on average during the last 10m)",
 	            "tags": "auto-managed, aws_env:prod, monitor",
@@ -104,13 +219,15 @@ var newrelic = {
 	      	"text": "Triggered Monitors",
 	      	"href": "https://app.datadoghq.com/monitors/triggered"
 	      	}
-	    ],
-	  "event_action": "trigger",
-	  "routing_key": key
-	};
+	    ]
+    };
 
   var datadog2 = {
-       "payload":{
+        "event_action": "trigger",
+        "client": "Data Dog",
+        "client_url": "http://54.193.12.191:8000/en-US/app/search/search?q=search%20login",
+        "routing_key": key,
+        "payload":{
 	        "summary": "Request Response Time is High for prod - (95th percentile > 250 ms on average during the last 10m)",
 	        "severity": "critical",
 	        "source": "DataDog",
@@ -142,23 +259,47 @@ var newrelic = {
 	      	"text": "Triggered Monitors",
 	      	"href": "https://app.datadoghq.com/monitors/triggered"
 	      	}
-	    ],
-	  "event_action": "trigger",
-	  "routing_key": key
-	};
+	    ]
+    };
 
-    var events = [nagios, nagios, nagios, datadog1, splunk, datadog2, newrelic, newrelic, newrelic];
+    var disk = {
+    	"event_action": "trigger",
+        "client": "New Relic",
+        "client_url": "http://54.193.12.191:8000/en-US/app/search/search?q=search%20login",
+        "routing_key": key,
+        "payload": {
+			"client": "New Relic", 
+			"client_url": "https://one.newrelic.com", 
+			"links": [ 
+			{ "href": "https://radar-api.service.newrelic.com/accounts/1377700/issues/fddaf308-36ab-4d30-8b31-010127a22a10?notifier=PAGERDUTY_SERVICE_INTEGRATION", "text": "Issue Page" } ], 
+			"summary": "Disk Used % > 70.0 for at least 2 minutes on 'ip-10-64-0-228 (/)'", 
+			"event_action": "trigger", 
+			"severity":"critical", 
+			"source": "New Relic", 
+			"custom_details": { 
+				"Alert Condition Names": "High Disk Utilization", 
+				"Alert Policy Names": "Disk Utilization", 
+				"Description": "Policy: 'Disk Utilization'. Condition: 'High Disk Utilization'", 
+				"Impacted Entities": "ip-10-64-0-228 (/)", 
+				"IssueURL": "https://radar-api.service.newrelic.com/accounts/1377700/issues/fddaf308-36ab-4d30-8b31-010127a22a10?notifier=PAGERDUTY_SERVICE_INTEGRATION", "NewRelic priority": "CRITICAL", "Runbook": "", "Total Incidents": "1", "Workflow Name": "Policy: 3818680 - Disk Utilization", "id": "fddaf308-36ab-4d30-8b31-010127a22a10", "isCorrelated": "false" } 
+		} 
+	}
+    
+
+    var events = [disk, nagios, nagios, nagios, datadog1, splunk, datadog2, newrelic, newrelic, newrelic];
     var event;
     var delay = 3000;
     var info_str = "</br>Kicking off alert storm.</br>"
 
     for (event of events) {
 
+    	event_type = event['payload']['source']
+    	
+
         var options = {
             data: JSON.stringify(event)
         };
 
-        event_type = event['payload']['source']
 
         PDCEFEvent(options);
         console.log(event);
@@ -183,6 +324,9 @@ function sleep(ms) {
 
 $('#trigger-button').on('click', function() {
     var rkey=getParameterByName('routing_key');
-    console.log("Routing key is "+rkey)
+    var ckey=getParameterByName('change_key');
+    console.log("Routing key is "+rkey);
+    console.log("Change event key is "+ckey)
+    TriggerChangeEvents(ckey);
     TriggerAlertStorm(rkey);
 });
