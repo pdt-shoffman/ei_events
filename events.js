@@ -118,6 +118,7 @@ async function TriggerAlertStorm(key) {
     	}
 	};
 
+//DEPRICATED
 	var newrelic = {
         "event_action": "trigger",
         "client": "New Relic",
@@ -286,7 +287,7 @@ async function TriggerAlertStorm(key) {
 	}
     
 
-    var events = [disk, nagios, nagios, nagios, datadog1, splunk, datadog2, newrelic, newrelic, newrelic];
+    var events = [disk, nagios, nagios, nagios, datadog1, splunk, datadog2];
     var event;
     var delay = 3000;
     var info_str = "</br>Kicking off alert storm.</br>"
@@ -310,10 +311,93 @@ async function TriggerAlertStorm(key) {
         
     }
 
-    info_str = info_str + "All events have triggered"
-    $('#info').html("<p>"+info_str+"</p>");
+    TriggerSyntheticEvents(key,info_str);
+
+    
 }
 
+
+
+async function TriggerSyntheticEvents(key,info_str) {
+	var locations = [["Freemont, CA, USA","us-west-1"], ["Washington, DC, USA","us-east-1"], ["Columbus, OH, USA","us-east-2"], ["Portland, OR, USA","us-west-2"],["San Francisco, CA, USA","us-west-1" ],["Montreal, Québec, CA","ca-central-1" ],["Dallas, TX, USA", "us-central-1"],["Newark, NJ, USA", "us-east-1"  ],["Sydney, AU","ap-southeast-2"],["Paris, FR","eu-west-3" ],["London, England, UK","eu-west-2"],["Frankfurt, DE","eu-central-1" ],["Dublin, IE","eu-west-1"], ["Tokyo, JP","ap-northeast-1"], ["Singapore,SG","ap-southeast-1"], ["São Paulo, BR", "sa-east-1"],[ "Seoul, KR", "ap-northeast-2"], ["Mumbai, IN","ap-south-1"]];
+	var location_count = locations.length;
+
+	console.log(location_count);
+	for (var location=0; location < locations.length; location++){
+
+		var location_name = locations[location][0];
+		var location_id = locations[location][1];
+		
+		var newrelic = {
+	        "event_action": "trigger",
+	        "client": "New Relic",
+			"client_url": "https://alerts.newrelic.com/accounts/1985859/incidents/62835129",
+	        "routing_key": key,
+	        "payload": {
+	  			"summary": "Service Monitors (API Health Check violated API Request Failure)",
+	  			"severity": "critical",
+	  			"source": "New Relic",
+	  			"custom_details": {
+	      			"violation_callback_url": "https://synthetics.newrelic.com/accounts/1985859/monitors/704df0e2-dcc9-48f8-8756-dd83554c5da3/results/4a1a333d-2346-4a81-8091-dbf623d5016f",
+	      			"version": "1.0",
+	      			"targets": [
+	       				{
+				          "type": "Monitor",
+				          "product": "SYNTHETICS",
+				          "name": "API Health Check",
+				          "link": "https://synthetics.newrelic.com/accounts/1985859/monitors/704df0e2-dcc9-48f8-8756-dd83554c5da3/results/4a1a333d-2346-4a81-8091-dbf623d5016f",
+				          "labels": {},
+				          "id": location_id
+				        }
+				      ],
+	  				"policy_url": "https://alerts.newrelic.com/accounts/1985859/policies/423861",
+	  				"policy_name": "Service Monitors",
+	  				"open_violations_count": {
+	  					"warning": "0",
+			        	"critical": "1"
+			      	},
+			      "incident_url": "https://alerts.newrelic.com/accounts/1985859/incidents/62835129",
+			      "incident_id": "62835129",
+			      "incident_acknowledge_url": "https://alerts.newrelic.com/accounts/1985859/incidents/62835129/acknowledge",
+			      "event_type": "INCIDENT",
+			      "duration": "658",
+			      "details": "Monitor failed for location "+location_name,
+			      "current_state": "open",
+			      "condition_name": "API Request Failure",
+			      "condition_id": "47340281",
+			      "condition_family_id": "10419059",
+			      "closed_violations_count": {
+			        "warning": "0",
+			        "critical": "0"
+			      },
+			      "account_name": "PagerDuty",
+			      "account_id": "1985859"
+				}
+			}
+	    };
+
+	    var delay = 3000;
+	    event_type = newrelic['payload']['source']
+    	
+
+        var options = {
+            data: JSON.stringify(newrelic)
+        };
+
+
+        PDCEFEvent(options);
+        console.log(event);
+        info_str = info_str + "Triggering "+event_type+" event</br>"
+        $('#info').html("<p>"+info_str+"</p>");
+
+        await sleep(delay);
+
+
+	}
+
+	info_str = info_str + "<b>All events have triggered</b>";
+    $('#info').html("<p>"+info_str+"</p>");
+}
 
 
 
