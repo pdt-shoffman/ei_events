@@ -145,8 +145,7 @@ var newrelic = {
 	    ],
 	  "event_action": "trigger",
 	  "routing_key": key
-	}
-    };
+	};
 
     var events = [nagios, nagios, nagios, datadog1, splunk, datadog2, newrelic, newrelic, newrelic];
     var event;
